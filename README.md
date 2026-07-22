@@ -5,12 +5,6 @@ it, answer them, get instant AI feedback with a score — and over time,
 get a coaching report that spots your *recurring* weaknesses across every
 session you've ever done.
 
-> **New here?** Read [`ROADMAP.md`](./ROADMAP.md) for a phase-by-phase
-> build guide (great if you're building this yourself to learn), and
-> [`EXPLANATION.md`](./EXPLANATION.md) for the reasoning behind every
-> architectural decision (great for interview prep on this project).
-> Once the core app works, [`AWS_GUIDE.md`](./AWS_GUIDE.md) walks through
-> adding S3 export, RDS, Secrets Manager, and a real ECS deployment.
 
 ## Tech stack
 - Spring Boot 3.3, Java 17
@@ -98,62 +92,7 @@ src/main/java/com/interviewcoach/
 
 ---
 
-## Running it
 
-### 1. Set up Ollama (one-time)
-You said you've already got a model downloaded — just confirm Ollama itself
-is running:
-```bash
-ollama serve          # if not already running as a background service
-ollama list           # confirm your model name
-```
-Whatever name shows up in `ollama list` (e.g. `llama3.1`, `mistral`, etc.)
-must match `spring.ai.ollama.chat.options.model` in `application.properties`.
-Update that line if your model name is different.
-
-### 2. Get Google OAuth credentials
-Google Cloud Console → Credentials → OAuth 2.0 Client ID (Web application).
-Redirect URI: `http://localhost:8080/login/oauth2/code/google`
-
-### 3. Set environment variables
-```bash
-export GOOGLE_CLIENT_ID=your-client-id
-export GOOGLE_CLIENT_SECRET=your-client-secret
-```
-(or copy `.env.example` to `.env` for use with Docker Compose)
-
-### 4a. Run everything with Docker (recommended)
-```bash
-docker compose up --build
-```
-This starts Postgres, Zookeeper, Kafka, and the Spring Boot app. The app
-container reaches your locally-running Ollama via `host.docker.internal`
-(already configured in `docker-compose.yml`) — Ollama itself stays running
-on your machine, it does NOT run inside a container here.
-
-Backend available at `http://localhost:8080`.
-
-### 4b. Run locally without Docker (for active development)
-```bash
-docker compose up postgres kafka zookeeper   # just the infra
-mvn spring-boot:run
-```
-
-### 5. Run the frontend
-See `frontend/README.md` for setup — short version:
-```bash
-cd frontend
-npm install
-npm run dev
-```
-Opens at `http://localhost:5173`. Click "Sign in with Google" to log in.
-
-### Quick backend-only test without Postgres/Kafka (Phase 1 style)
-```bash
-mvn spring-boot:run -Dspring-boot.run.profiles=h2
-```
-
----
 
 ## API reference
 
@@ -223,23 +162,3 @@ GET /api/progress/report
 }
 ```
 
----
-
-## Testing
-```bash
-mvn test
-```
-`ProgressServiceTest` covers the weakness-tag aggregation logic (the core
-of the unique feature) without needing a live AI call or database.
-
-## Notes on production-readiness (things intentionally simplified for a
-first project, called out honestly)
-- `weaknessTagsCsv` is a plain comma-separated string column instead of a
-  proper `@ElementCollection`/join table — simpler to reason about, but a
-  real "v2" improvement.
-- AI responses are parsed as plain text lines instead of structured JSON
-  output. Works well in practice, but Spring AI's structured output
-  support is a good next thing to learn once this works end to end.
-- No retry/dead-letter-queue handling if a Kafka consumer's AI call fails
-  (it just marks the session `FAILED` and logs it) - a real production
-  system would retry or route to a DLQ topic.
